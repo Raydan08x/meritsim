@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: meritsim_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-meritsim}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_password}
+      POSTGRES_DB: ${POSTGRES_DB:-meritsim_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meritsim}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - meritsim_net
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: meritsim_backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-meritsim}:${POSTGRES_PASSWORD:-change_me_password}@db:5432/${POSTGRES_DB:-meritsim_db}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - ALGORITHM=${ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      - ./backend:/app
+      - "./MATERIAL DE ESTUDIO 2026:/app/materials:ro"
+    ports:
+      - "${API_PORT:-9011}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python seed_init.py && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    networks:
+      - meritsim_net
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: meritsim_frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost:${API_PORT:-9011}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "${WEB_PORT:-9010}:5173"
+    depends_on:
+      - backend
+    networks:
+      - meritsim_net
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  meritsim_net:
+    driver: bridge

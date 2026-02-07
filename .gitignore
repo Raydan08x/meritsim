@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+
+# Javascript
+node_modules/
+dist/
+build/
+.DS_Store
+
+# Large Backups & Materials
+OneDrive_2026-02-07.zip
+*.zip
+*.gz
+MATERIAL DE ESTUDIO 2026/
+OneDrive_2026-02-07/
